@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Developer Portfolio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <!-- 1. Preloader Overlay -->
+    <div id="loader" class="loader-overlay">
+      <div class="loader-content">
+        <div class="loader-spinner"></div>
+        <div class="loader-text">Loading Portfolio</div>
+        <div class="loader-progress-bar">
+          <div id="progress-fill" class="progress-fill"></div>
+        </div>
+        <div id="progress-text" class="progress-text">0%</div>
+      </div>
+    </div>
+
+    <!-- 3D Scroll Canvas Background -->
+    <div class="canvas-container">
+      <canvas id="scroll-canvas"></canvas>
+      <div class="canvas-gradient-overlay"></div>
+    </div>
+
+    <!-- Sticky Navigation Header -->
+    <header class="navbar">
+      <div class="nav-container">
+        <nav class="nav-links" id="main-nav-links">
+          <a href="#home" class="active">Home</a>
+          <a href="#about">About</a>
+          <a href="#skills">Skills</a>
+          <a href="#projects">Projects</a>
+          <a href="#learning">Learning</a>
+          <a href="#contact">Contact</a>
+        </nav>
+        
+        <div class="nav-logo">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="14" cy="14" r="12" stroke="#f97316" stroke-width="1.5" stroke-dasharray="3 3"/>
+            <circle cx="14" cy="14" r="5" fill="#f97316"/>
+          </svg>
+        </div>
+
+        <div class="nav-right">
+          <div class="social-chips" id="nav-social-chips">
+            <!-- Dynamically populated from portfolio.js -->
+          </div>
+          <a href="#contact" class="btn-menu">
+            Let's Talk
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M1 13L13 1M13 1H3M13 1H3M13 1V11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <!-- Scroll Content Container -->
+    <main class="scroll-wrapper">
+      <!-- 1. HERO SECTION -->
+      <section class="section-hero" id="home">
+        <div class="hero-grid">
+          <!-- Left Column -->
+          <div class="hero-left">
+            <div class="hero-name-tag" id="hero-name-tag">— Masaood Ahamad</div>
+            <h1 class="hero-title" id="hero-title">
+              <span class="text-orange">Second-Year B.Tech Student & Developer</span>
+            </h1>
+            <p class="hero-desc" id="hero-desc">
+              A second-year B.Tech Computer Science student focused on building practical software projects, strengthening problem-solving skills, and exploring machine learning and deep learning.
+            </p>
+            <div class="hero-actions">
+              <a href="#projects" class="btn-primary">View Projects</a>
+              <a href="#contact" class="btn-secondary" id="hero-contact-btn">
+                Contact
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M4.5 9L7.5 6L4.5 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </a>
+            </div>
+          </div>
+
+          <!-- Right Column -->
+          <div class="hero-right">
+            <div class="services-list-tag" id="hero-tagline">
+              <span class="tag-sub">[FOCUS]</span> <span>DSA • Java • Web Development • AI/ML</span>
+            </div>
+
+            <!-- Developer Profile Glass Card -->
+            <div class="glass-card card-contact-mini">
+              <h3 class="card-title">Developer Profile</h3>
+              <p class="card-sub" id="hero-location-text">A second-year B.Tech Computer Science student focused on building practical software projects.</p>
+              
+              <div class="social-pills" id="hero-social-pills">
+                <!-- Dynamically populated -->
+              </div>
+
+              <div class="email-input-group">
+                <input type="text" id="hero-email-display" readonly value="ahmadmasaood070@gamil.com" />
+                <a href="#contact" class="btn-send-orange" aria-label="Contact">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M1 13L13 1M13 1H3M13 1H3M13 1V11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scroll To Explore Button -->
+        <a href="#about" class="scroll-explore-btn" aria-label="Scroll to Explore">
+          <span>SCROLL TO EXPLORE</span>
+          <svg class="explore-arrow" width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7 1v12M1 7l6 6 6-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+      </section>
+
+      <!-- 2. ABOUT ME SECTION -->
+      <section class="section-impact" id="about">
+        <div class="impact-panel glass-card-large reveal-on-scroll">
+          <div class="impact-header reveal-on-scroll" style="transition-delay: 0.08s;">
+            <div class="impact-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 16v-4M12 8h.01"/>
+              </svg>
+              <span>About Me</span>
+            </div>
+            
+            <h2 class="impact-statement" id="about-statement">
+              I am Masaood Ahamad, a second-year B.Tech Computer Science student who embraces a learning-by-building approach. My current focus is Data Structures & Algorithms with Java, alongside my interests in Web Development, Machine Learning, and Deep Learning. I am passionate about turning ideas into practical, real-world projects.
+            </h2>
+          </div>
+
+          <!-- Education Section -->
+          <div class="education-section reveal-on-scroll" style="transition-delay: 0.18s;">
+            <h3 class="sub-section-title">Education</h3>
+            <div class="education-grid" id="about-education-grid">
+              <!-- Dynamically populated education cards -->
+            </div>
+          </div>
+
+          <!-- Interests & Current Focus -->
+          <div class="about-meta-grid reveal-on-scroll" style="margin-top: 32px; transition-delay: 0.28s;">
+            <div class="cards-grid-two">
+              <div class="glass-card card-feature reveal-on-scroll" style="background: rgba(255, 255, 255, 0.03); transition-delay: 0.35s;">
+                <h4 class="sub-section-title" style="margin-top:0; margin-bottom: 12px; font-size: 16px;">💡 Interests</h4>
+                <div class="skill-tags-wrapper" id="about-interests-tags">
+                  <!-- Dynamically populated -->
+                </div>
+              </div>
+              <div class="glass-card card-feature reveal-on-scroll" style="background: rgba(255, 255, 255, 0.03); transition-delay: 0.45s;">
+                <h4 class="sub-section-title" style="margin-top:0; margin-bottom: 12px; font-size: 16px;">🎯 Current Focus</h4>
+                <p class="card-sub" id="about-current-focus" style="font-size: 14px; line-height: 1.6; color: var(--text-muted);">
+                  <!-- Dynamically populated -->
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. SKILLS & TECHNOLOGIES SECTION -->
+      <section class="section-skills-exp" id="skills">
+        <div class="section-container">
+          <div class="section-header-title">
+            <div class="impact-badge">
+              <span>Technical Stack</span>
+            </div>
+            <h2 class="exp-title" style="font-size: 48px; margin-top: 12px;">
+              Skills & <span class="text-orange font-space">Technologies</span>
+            </h2>
+          </div>
+
+          <div class="cards-grid-two">
+            <!-- 1. Programming -->
+            <div class="glass-card card-feature">
+              <div class="card-header-row">
+                <div class="icon-badge-orange">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="16 18 22 12 16 6"/>
+                    <polyline points="8 6 2 12 8 18"/>
+                  </svg>
+                </div>
+                <h3 class="feature-title">Programming</h3>
+              </div>
+              <div class="accent-line"></div>
+              <div class="skill-tags-wrapper" id="skills-languages-tags">
+                <!-- Dynamically rendered pills -->
+              </div>
+            </div>
+
+            <!-- 2. Web Development -->
+            <div class="glass-card card-feature">
+              <div class="card-header-row">
+                <div class="icon-badge-orange">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                    <polyline points="2 17 12 22 22 17"/>
+                    <polyline points="2 12 12 17 22 12"/>
+                  </svg>
+                </div>
+                <h3 class="feature-title">Web Development</h3>
+              </div>
+              <div class="accent-line"></div>
+              <div class="skill-tags-wrapper" id="skills-web-tags">
+                <!-- Dynamically rendered pills -->
+              </div>
+            </div>
+
+            <!-- 3. Backend / Database -->
+            <div class="glass-card card-feature">
+              <div class="card-header-row">
+                <div class="icon-badge-orange">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+                    <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+                    <line x1="6" y1="6" x2="6.01" y2="6"/>
+                    <line x1="6" y1="18" x2="6.01" y2="18"/>
+                  </svg>
+                </div>
+                <h3 class="feature-title">Backend / Database</h3>
+              </div>
+              <div class="accent-line"></div>
+              <div class="skill-tags-wrapper" id="skills-backend-tags">
+                <!-- Dynamically rendered pills -->
+              </div>
+            </div>
+
+            <!-- 4. AI / Machine Learning -->
+            <div class="glass-card card-feature">
+              <div class="card-header-row">
+                <div class="icon-badge-orange">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2a10 10 0 1 0 10 10H12V2z"/>
+                    <path d="M12 12L2.5 7.5"/>
+                    <path d="M12 12v10"/>
+                  </svg>
+                </div>
+                <h3 class="feature-title">AI / Machine Learning</h3>
+              </div>
+              <div class="accent-line"></div>
+              <div class="skill-tags-wrapper" id="skills-aiml-tags">
+                <!-- Dynamically rendered pills -->
+              </div>
+            </div>
+
+            <!-- 5. Tools -->
+            <div class="glass-card card-feature">
+              <div class="card-header-row">
+                <div class="icon-badge-orange">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                  </svg>
+                </div>
+                <h3 class="feature-title">Tools</h3>
+              </div>
+              <div class="accent-line"></div>
+              <div class="skill-tags-wrapper" id="skills-tools-tags">
+                <!-- Dynamically rendered pills -->
+              </div>
+            </div>
+
+            <!-- 6. Currently Learning -->
+            <div class="glass-card card-feature">
+              <div class="card-header-row">
+                <div class="icon-badge-orange">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </div>
+                <h3 class="feature-title">Currently Learning</h3>
+              </div>
+              <div class="accent-line"></div>
+              <div class="skill-tags-wrapper" id="currently-learning-tags">
+                <!-- Dynamically rendered pills -->
+              </div>
+            </div>
+          </div>
+
+          <!-- PART 2 — CERTIFICATIONS SUBSECTION -->
+          <div class="certifications-subsection" style="margin-top: 36px;">
+            <h3 class="sub-section-title" style="font-size: 24px; margin-top: 0; margin-bottom: 20px;">
+              Certifications & <span class="text-orange font-space">Credentials</span>
+            </h3>
+            <div class="certifications-grid" id="skills-certifications-grid">
+              <!-- Dynamically rendered certification cards -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. PROJECTS SECTION -->
+      <section class="section-experience" id="projects">
+        <div class="section-container" style="width: 100%;">
+          <div class="section-header-title">
+            <div class="impact-badge">
+              <span>Showcase</span>
+            </div>
+            <h2 class="exp-title" style="font-size: 48px; margin-top: 12px;">
+              Featured <span class="text-orange font-space">Projects</span>
+            </h2>
+          </div>
+
+          <div class="projects-grid" id="projects-grid">
+            <!-- Dynamically populated project cards -->
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. LEARNING JOURNEY SECTION -->
+      <section class="section-skills-exp" id="learning">
+        <div class="section-container">
+          <div class="section-header-title">
+            <div class="impact-badge">
+              <span>Continuous Growth</span>
+            </div>
+            <h2 class="exp-title" style="font-size: 48px; margin-top: 12px;">
+              Learning <span class="text-orange font-space">Journey</span>
+            </h2>
+          </div>
+
+          <div class="cards-grid-two">
+            <!-- Learning Milestones -->
+            <div class="glass-card card-feature" style="grid-column: span 2;">
+              <div class="card-header-row">
+                <div class="icon-badge-orange">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                  </svg>
+                </div>
+                <h3 class="feature-title">Learning Milestones</h3>
+              </div>
+              <div class="accent-line"></div>
+              <div class="journey-roadmap" id="journey-roadmap-container">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+
+            <!-- Future Areas of Exploration -->
+            <div class="glass-card card-feature" style="grid-column: span 2;">
+              <div class="card-header-row">
+                <div class="icon-badge-orange">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+                  </svg>
+                </div>
+                <h3 class="feature-title">Future Areas of Exploration</h3>
+              </div>
+              <div class="accent-line"></div>
+              <div class="skill-tags-wrapper" id="future-exploration-tags">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. CONTACT SECTION -->
+      <section class="section-contact" id="contact">
+        <div class="glass-card-large">
+          <div class="impact-badge">
+            <span>Get In Touch</span>
+          </div>
+          <h2 class="exp-title" style="font-size: 48px; margin-top: 12px; margin-bottom: 16px;">
+            Let's <span class="text-orange font-space">Connect</span>
+          </h2>
+          <p class="hero-desc" id="contact-message-text" style="max-width: 600px; margin-bottom: 28px;">
+            <!-- Dynamically populated from portfolio.js contact.message -->
+          </p>
+
+          <div class="contact-details-row" id="contact-details-row">
+            <!-- Dynamically populated contact chips (Email, GitHub, LinkedIn, Twitter) -->
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. FOOTER SECTION -->
+      <footer class="section-footer">
+        <div class="footer-container">
+          <div class="footer-tagline" id="footer-tagline">
+            <!-- Dynamically populated from portfolio.js footer.tagline -->
+          </div>
+          <div class="footer-bottom">
+            <div class="footer-copyright" id="footer-copyright">
+              <!-- Dynamically populated from portfolio.js footer.copyright -->
+            </div>
+          </div>
+        </div>
+      </footer>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
