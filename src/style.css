@@ -1576,7 +1576,7 @@ html, body {
     height: auto;
     min-height: 100vh;
     min-height: 100dvh;
-    padding: 110px 20px 14px;
+    padding: 138px 20px 14px;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -1740,7 +1740,7 @@ html, body {
     font-size: 12px;
   }
   .section-hero {
-    padding: 105px 16px 12px;
+    padding: 130px 16px 12px;
   }
   .hero-title {
     font-size: 28px;
@@ -1774,7 +1774,7 @@ html, body {
     padding: 6px 10px;
   }
   .section-hero {
-    padding: 100px 12px 10px;
+    padding: 124px 12px 10px;
   }
   .hero-title {
     font-size: 25px;
