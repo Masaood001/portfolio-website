@@ -247,12 +247,13 @@ html, body {
 .section-hero {
   height: 100vh;
   height: 100dvh;
-  min-height: 560px;
-  padding: 110px 48px 75px;
+  min-height: 600px;
+  padding: 96px 48px 40px;
   max-width: 1400px;
   margin: 0 auto;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  justify-content: center;
   position: relative;
   box-sizing: border-box;
 }
@@ -486,17 +487,21 @@ html, body {
   gap: 60px;
   width: 100%;
   align-items: center;
+  margin-top: auto;
+  margin-bottom: auto;
 }
 
 .hero-left {
   transform: translateX(-35px);
 }
 
+.hero-name-tag,
 .agency-tag {
   font-size: 14px;
   font-weight: 500;
   color: var(--text-muted);
-  margin-bottom: 24px;
+  margin-bottom: 20px;
+  display: block;
 }
 
 .hero-title {
@@ -1474,7 +1479,7 @@ html, body {
 
 @media (max-width: 1024px) {
   .section-hero {
-    padding: 85px 32px 75px;
+    padding: 115px 32px 65px;
     height: 100vh;
     height: 100dvh;
     min-height: auto;
@@ -1561,11 +1566,17 @@ html, body {
   }
 
   /* Hero Section Mobile Spacing & Layout */
+  .canvas-gradient-overlay {
+    background: 
+      radial-gradient(circle at 50% 35%, rgba(249, 115, 22, 0.15) 0%, transparent 60%),
+      linear-gradient(to bottom, transparent 60%, rgba(6, 6, 8, 0.85) 88%, #060608 100%);
+  }
+
   .section-hero {
     height: auto;
     min-height: 100vh;
     min-height: 100dvh;
-    padding: 125px 20px 36px;
+    padding: 110px 20px 14px;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -1576,6 +1587,8 @@ html, body {
     grid-template-columns: 1fr;
     gap: 24px;
     width: 100%;
+    margin-top: 0;
+    margin-bottom: 0;
   }
 
   .hero-left {
@@ -1663,7 +1676,7 @@ html, body {
     bottom: auto;
     left: auto;
     right: auto;
-    margin: 32px auto 0;
+    margin: 14px auto 0;
     font-size: 10px;
     padding: 8px 18px;
     letter-spacing: 0.08em;
@@ -1692,7 +1705,10 @@ html, body {
   }
 
   /* Section Spacing */
-  .section-impact,
+  .section-impact {
+    padding: 20px 20px 60px;
+  }
+
   .section-skills-exp,
   .section-experience,
   .section-contact {
@@ -1724,15 +1740,18 @@ html, body {
     font-size: 12px;
   }
   .section-hero {
-    padding: 120px 16px 32px;
+    padding: 105px 16px 12px;
   }
   .hero-title {
     font-size: 28px;
   }
   .scroll-explore-btn {
-    margin: 28px auto 0;
+    margin: 12px auto 0;
     font-size: 10px;
     padding: 7px 16px;
+  }
+  .section-impact {
+    padding: 16px 16px 50px;
   }
   .chip {
     min-width: 34px;
@@ -1755,10 +1774,16 @@ html, body {
     padding: 6px 10px;
   }
   .section-hero {
-    padding: 115px 12px 28px;
+    padding: 100px 12px 10px;
   }
   .hero-title {
     font-size: 25px;
+  }
+  .scroll-explore-btn {
+    margin: 10px auto 0;
+  }
+  .section-impact {
+    padding: 14px 12px 40px;
   }
   .hero-name-tag {
     font-size: 12px;

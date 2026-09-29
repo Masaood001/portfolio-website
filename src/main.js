@@ -479,17 +479,25 @@ function resizeCanvas() {
 function updateCanvasRenderMetrics(img) {
   const imgAspect = img.naturalWidth / img.naturalHeight;
   const canvasAspect = viewportW / viewportH;
+  const isMobile = viewportW <= 768;
 
   if (canvasAspect > imgAspect) {
     renderHeight = viewportH;
     renderWidth = renderHeight * imgAspect;
+    offsetX = (viewportW - renderWidth) / 2;
+    offsetY = (viewportH - renderHeight) / 2;
+  } else if (isMobile) {
+    // On mobile portrait, scale renderHeight so the 3D scene fills screen height gracefully without 200px black voids
+    renderHeight = Math.max(viewportH * 0.72, viewportW / imgAspect);
+    renderWidth = renderHeight * imgAspect;
+    offsetX = (viewportW - renderWidth) / 2;
+    offsetY = (viewportH - renderHeight) / 2;
   } else {
     renderWidth = viewportW;
     renderHeight = renderWidth / imgAspect;
+    offsetX = (viewportW - renderWidth) / 2;
+    offsetY = (viewportH - renderHeight) / 2;
   }
-
-  offsetX = (viewportW - renderWidth) / 2;
-  offsetY = (viewportH - renderHeight) / 2;
 
   scaledRenderWidth = renderWidth * dpr;
   scaledRenderHeight = renderHeight * dpr;
