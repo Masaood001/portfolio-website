@@ -2,8 +2,11 @@ import Lenis from 'lenis';
 import { portfolioData } from './data/portfolio.js';
 
 const TOTAL_FRAMES = 240;
-const frames = [];
+const frames = new Array(TOTAL_FRAMES);
+const frameStatus = new Uint8Array(TOTAL_FRAMES); // 0 = UNLOADED, 1 = LOADING, 2 = LOADED, 3 = ERROR
 let loadedCount = 0;
+let activeDownloads = 0;
+const MAX_CONCURRENT_DOWNLOADS = 4;
 
 // DOM Elements
 const canvas = document.getElementById('scroll-canvas');
@@ -361,46 +364,102 @@ function getFrameUrl(index) {
   return `/frames/ezgif-frame-${frameNumber}.jpg`;
 }
 
-// Preload Images Efficiently with Pre-Decoding
-function preloadImages() {
+// Low-level Async Frame Loader with Pre-Decoding
+function fetchFrame(index) {
+  if (index < 0 || index >= TOTAL_FRAMES) return Promise.resolve(null);
+  if (frameStatus[index] !== 0) return Promise.resolve(frames[index] || null);
+
+  frameStatus[index] = 1; // LOADING
+  activeDownloads++;
+
   return new Promise((resolve) => {
-    let completed = 0;
+    const img = new Image();
+    img.decoding = 'async';
+    img.src = getFrameUrl(index);
 
-    const onFrameReady = () => {
-      completed++;
-      const percent = Math.floor((completed / TOTAL_FRAMES) * 100);
-      
-      if (progressFill) progressFill.style.width = `${percent}%`;
-      if (progressText) progressText.textContent = `${percent}%`;
+    const onDone = (success) => {
+      activeDownloads--;
+      if (success) {
+        frames[index] = img;
+        frameStatus[index] = 2; // LOADED
+        loadedCount++;
+      } else {
+        frameStatus[index] = 3; // ERROR
+      }
+      processQueue();
+      resolve(frames[index] || null);
+    };
 
-      if (completed === TOTAL_FRAMES) {
-        isLoaded = true;
-        resolve();
+    const decodeAndDone = () => {
+      if ('decode' in img) {
+        img.decode().then(() => onDone(true)).catch(() => onDone(true));
+      } else {
+        onDone(true);
       }
     };
 
-    for (let i = 0; i < TOTAL_FRAMES; i++) {
-      const img = new Image();
-      img.decoding = 'async';
-      img.src = getFrameUrl(i);
-      frames.push(img);
-
-      const decodeAndNotify = () => {
-        if ('decode' in img) {
-          img.decode().then(onFrameReady).catch(onFrameReady);
-        } else {
-          onFrameReady();
-        }
-      };
-
-      if (img.complete) {
-        decodeAndNotify();
-      } else {
-        img.onload = decodeAndNotify;
-        img.onerror = onFrameReady;
-      }
+    if (img.complete) {
+      decodeAndDone();
+    } else {
+      img.onload = decodeAndDone;
+      img.onerror = () => onDone(false);
     }
   });
+}
+
+// Determine Next Frame to Load based on Current Scroll Position & Keyframes
+function getNextFrameToLoad() {
+  const target = Math.round(currentFrameIndex);
+
+  // 1. High Priority: window of +/- 15 frames around current scroll position (forward first)
+  for (let offset = 0; offset <= 15; offset++) {
+    const fwd = target + offset;
+    if (fwd < TOTAL_FRAMES && frameStatus[fwd] === 0) return fwd;
+
+    const bwd = target - offset;
+    if (bwd >= 0 && frameStatus[bwd] === 0) return bwd;
+  }
+
+  // 2. Medium Priority: Keyframes sampled every 10 frames across the animation timeline
+  for (let i = 0; i < TOTAL_FRAMES; i += 10) {
+    if (frameStatus[i] === 0) return i;
+  }
+
+  // 3. Low Priority: All remaining un-loaded frames sequentially
+  for (let i = 0; i < TOTAL_FRAMES; i++) {
+    if (frameStatus[i] === 0) return i;
+  }
+
+  return -1;
+}
+
+// Process Queue up to MAX_CONCURRENT_DOWNLOADS
+function processQueue() {
+  while (activeDownloads < MAX_CONCURRENT_DOWNLOADS) {
+    const nextIndex = getNextFrameToLoad();
+    if (nextIndex === -1) break;
+    fetchFrame(nextIndex);
+  }
+}
+
+// Find Nearest Available Loaded Frame for Zero-Stutter Canvas Fallback
+function getNearestLoadedFrame(targetIndex) {
+  if (frameStatus[targetIndex] === 2 && frames[targetIndex]?.complete) {
+    return targetIndex;
+  }
+
+  for (let delta = 1; delta < TOTAL_FRAMES; delta++) {
+    const prev = targetIndex - delta;
+    if (prev >= 0 && frameStatus[prev] === 2 && frames[prev]?.complete) {
+      return prev;
+    }
+    const next = targetIndex + delta;
+    if (next < TOTAL_FRAMES && frameStatus[next] === 2 && frames[next]?.complete) {
+      return next;
+    }
+  }
+
+  return -1;
 }
 
 // High-DPI & Responsive Canvas Sizing
@@ -443,13 +502,16 @@ function updateCanvasRenderMetrics(img) {
   needsCanvasMetricsUpdate = false;
 }
 
-// Crisp HD Frame Rendering with Redraw Skipping
+// Crisp HD Frame Rendering with Redraw Skipping & Nearest Frame Fallback
 function renderFrame(index) {
-  // Skip redraw if frame index has not changed and dimensions are up to date
-  if (index === lastRenderedFrameIndex && !needsCanvasMetricsUpdate) return;
-  if (!frames[index] || !frames[index].complete) return;
+  const drawIndex = getNearestLoadedFrame(index);
+  if (drawIndex === -1) return;
 
-  const img = frames[index];
+  // Skip redraw if the actual frame drawn hasn't changed and dimensions are up to date
+  if (drawIndex === lastRenderedFrameIndex && !needsCanvasMetricsUpdate) return;
+
+  const img = frames[drawIndex];
+  if (!img || !img.complete) return;
 
   if (needsCanvasMetricsUpdate || scaledRenderWidth === 0) {
     updateCanvasRenderMetrics(img);
@@ -458,7 +520,7 @@ function renderFrame(index) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(img, scaledOffsetX, scaledOffsetY, scaledRenderWidth, scaledRenderHeight);
 
-  lastRenderedFrameIndex = index;
+  lastRenderedFrameIndex = drawIndex;
 }
 
 // Setup Navigation & Observer
@@ -641,6 +703,9 @@ function animate(time) {
         }
       }
     }
+
+    // Trigger background queue processing as frame index updates
+    processQueue();
   }
 
   requestAnimationFrame(animate);
@@ -666,7 +731,21 @@ async function init() {
   window.addEventListener('resize', handleResize, { passive: true });
   resizeCanvas();
 
-  await preloadImages();
+  // Load initial essential frames (frames 0 to 4) immediately for zero-perceived-latency UI
+  const CRITICAL_FRAMES = [0, 1, 2, 3, 4];
+  let loadedCritical = 0;
+
+  await Promise.all(CRITICAL_FRAMES.map((idx) => {
+    return fetchFrame(idx).then(() => {
+      loadedCritical++;
+      const pct = Math.floor((loadedCritical / CRITICAL_FRAMES.length) * 100);
+      if (progressFill) progressFill.style.width = `${pct}%`;
+      if (progressText) progressText.textContent = `${pct}%`;
+    });
+  }));
+
+  isLoaded = true;
+  renderFrame(0);
 
   if (loader) {
     loader.classList.add('hidden');
@@ -681,6 +760,9 @@ async function init() {
   }
 
   requestAnimationFrame(animate);
+
+  // Kick off background progressive frame preloader
+  processQueue();
 }
 
 init();
