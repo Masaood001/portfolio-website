@@ -6,7 +6,7 @@ const frames = new Array(TOTAL_FRAMES);
 const frameStatus = new Uint8Array(TOTAL_FRAMES); // 0 = UNLOADED, 1 = LOADING, 2 = LOADED, 3 = ERROR
 let loadedCount = 0;
 let activeDownloads = 0;
-const MAX_CONCURRENT_DOWNLOADS = 4;
+let maxConcurrentDownloads = 4;
 
 // DOM Elements
 const canvas = document.getElementById('scroll-canvas');
@@ -39,6 +39,16 @@ let viewportW = window.innerWidth;
 let viewportH = window.innerHeight;
 let maxScroll = 0;
 let isReducedMotion = false;
+let isMobile = false;
+
+// Scroll & Velocity Cache
+let lastScrollY = -1;
+let scrollDirection = 1; // 1 = DOWN, -1 = UP
+let prevFrameIndexForDirection = 0;
+
+// Section Animation State Guards (eliminates redundant DOM/math updates)
+let heroState = ''; // 'top' | 'animating' | 'bottom'
+let aboutState = ''; // 'top' | 'animating' | 'bottom'
 
 // Canvas Render Metrics Cache
 let renderWidth = 0;
@@ -66,21 +76,27 @@ function setElementStyle(el, key, value) {
   }
 }
 
-// Initialize Lenis Smooth Scroll
+// Initialize Lenis Smooth Scroll with mobile-tuned touch response
+const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+
 const lenis = new Lenis({
-  duration: 1.2,
+  duration: isTouchDevice ? 0.8 : 1.2,
   easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
   smoothWheel: true,
-  touchMultiplier: 2,
+  touchMultiplier: 1.2,
 });
 
 // Update Layout & Viewport Metrics
 function updateMetrics() {
   viewportW = window.innerWidth;
   viewportH = window.innerHeight;
-  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  isMobile = viewportW <= 768;
+  maxConcurrentDownloads = isMobile ? 2 : 4;
+  dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 1.25 : 2);
   maxScroll = Math.max(0, document.documentElement.scrollHeight - viewportH);
   needsCanvasMetricsUpdate = true;
+  heroState = '';
+  aboutState = '';
   updateSectionMetrics();
 }
 
@@ -364,7 +380,25 @@ function getFrameUrl(index) {
   return `/frames/ezgif-frame-${frameNumber}.jpg`;
 }
 
-// Low-level Async Frame Loader with Pre-Decoding
+// Schedule queue processing during idle time to prevent blocking RAF scroll ticks
+let queueScheduled = false;
+function scheduleProcessQueue() {
+  if (queueScheduled) return;
+  queueScheduled = true;
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(() => {
+      queueScheduled = false;
+      processQueue();
+    }, { timeout: 50 });
+  } else {
+    setTimeout(() => {
+      queueScheduled = false;
+      processQueue();
+    }, 16);
+  }
+}
+
+// Low-level Async Frame Loader with Smart Memory & Pre-Decoding
 function fetchFrame(index) {
   if (index < 0 || index >= TOTAL_FRAMES) return Promise.resolve(null);
   if (frameStatus[index] !== 0) return Promise.resolve(frames[index] || null);
@@ -374,7 +408,6 @@ function fetchFrame(index) {
 
   return new Promise((resolve) => {
     const img = new Image();
-    img.decoding = 'async';
     img.src = getFrameUrl(index);
 
     const onDone = (success) => {
@@ -386,46 +419,58 @@ function fetchFrame(index) {
       } else {
         frameStatus[index] = 3; // ERROR
       }
-      processQueue();
+      scheduleProcessQueue();
       resolve(frames[index] || null);
     };
 
-    const decodeAndDone = () => {
-      if ('decode' in img) {
-        img.decode().then(() => onDone(true)).catch(() => onDone(true));
-      } else {
-        onDone(true);
-      }
-    };
+    const targetIndex = Math.round(currentFrameIndex);
+    const distance = Math.abs(index - targetIndex);
+    const isCriticalOrNear = index < 5 || distance <= 15;
 
-    if (img.complete) {
-      decodeAndDone();
+    // On mobile, decode critical/near frames to avoid main-thread decode stutter on active view,
+    // while letting distant frames complete via onload to prevent RGBA texture memory bloat.
+    if ('decode' in img && (!isMobile || isCriticalOrNear)) {
+      img.decoding = 'async';
+      const decodeAndDone = () => {
+        img.decode().then(() => onDone(true)).catch(() => onDone(true));
+      };
+      if (img.complete) {
+        decodeAndDone();
+      } else {
+        img.onload = decodeAndDone;
+        img.onerror = () => onDone(false);
+      }
     } else {
-      img.onload = decodeAndDone;
-      img.onerror = () => onDone(false);
+      if (img.complete) {
+        onDone(true);
+      } else {
+        img.onload = () => onDone(true);
+        img.onerror = () => onDone(false);
+      }
     }
   });
 }
 
-// Determine Next Frame to Load based on Current Scroll Position & Keyframes
+// Determine Next Frame to Load based on Current Scroll Position, Direction & Keyframes
 function getNextFrameToLoad() {
   const target = Math.round(currentFrameIndex);
 
-  // 1. High Priority: window of +/- 15 frames around current scroll position (forward first)
-  for (let offset = 0; offset <= 15; offset++) {
-    const fwd = target + offset;
-    if (fwd < TOTAL_FRAMES && frameStatus[fwd] === 0) return fwd;
+  // 1. Direction-aware high priority window (+/- 20 frames around current position)
+  const dir = scrollDirection >= 0 ? 1 : -1;
+  for (let offset = 0; offset <= 20; offset++) {
+    const primary = target + (offset * dir);
+    if (primary >= 0 && primary < TOTAL_FRAMES && frameStatus[primary] === 0) return primary;
 
-    const bwd = target - offset;
-    if (bwd >= 0 && frameStatus[bwd] === 0) return bwd;
+    const secondary = target - (offset * dir);
+    if (secondary >= 0 && secondary < TOTAL_FRAMES && frameStatus[secondary] === 0) return secondary;
   }
 
-  // 2. Medium Priority: Keyframes sampled every 10 frames across the animation timeline
+  // 2. Timeline Keyframes (sampled every 10 frames across timeline for instant fallback)
   for (let i = 0; i < TOTAL_FRAMES; i += 10) {
     if (frameStatus[i] === 0) return i;
   }
 
-  // 3. Low Priority: All remaining un-loaded frames sequentially
+  // 3. Sequential load for remaining frames
   for (let i = 0; i < TOTAL_FRAMES; i++) {
     if (frameStatus[i] === 0) return i;
   }
@@ -433,9 +478,9 @@ function getNextFrameToLoad() {
   return -1;
 }
 
-// Process Queue up to MAX_CONCURRENT_DOWNLOADS
+// Process Queue up to maxConcurrentDownloads
 function processQueue() {
-  while (activeDownloads < MAX_CONCURRENT_DOWNLOADS) {
+  while (activeDownloads < maxConcurrentDownloads) {
     const nextIndex = getNextFrameToLoad();
     if (nextIndex === -1) break;
     fetchFrame(nextIndex);
@@ -479,7 +524,6 @@ function resizeCanvas() {
 function updateCanvasRenderMetrics(img) {
   const imgAspect = img.naturalWidth / img.naturalHeight;
   const canvasAspect = viewportW / viewportH;
-  const isMobile = viewportW <= 768;
 
   if (canvasAspect > imgAspect) {
     renderHeight = viewportH;
@@ -505,7 +549,7 @@ function updateCanvasRenderMetrics(img) {
   scaledOffsetY = offsetY * dpr;
 
   ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
+  ctx.imageSmoothingQuality = isMobile ? 'medium' : 'high';
 
   needsCanvasMetricsUpdate = false;
 }
@@ -525,7 +569,7 @@ function renderFrame(index) {
     updateCanvasRenderMetrics(img);
   }
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // Opaque JPEG frame covers render area directly without expensive clearRect memory writes
   ctx.drawImage(img, scaledOffsetX, scaledOffsetY, scaledRenderWidth, scaledRenderHeight);
 
   lastRenderedFrameIndex = drawIndex;
@@ -613,118 +657,166 @@ function animate(time) {
 
   if (isLoaded) {
     const currentScrollY = lenis.scroll || window.scrollY;
-    const scrollProgress = maxScroll > 0 ? clamp(currentScrollY / maxScroll, 0, 1) : 0;
+    const scrollChanged = Math.abs(currentScrollY - lastScrollY) > 0.001;
 
-    currentFrameIndex = scrollProgress * (TOTAL_FRAMES - 1);
+    if (scrollChanged || needsCanvasMetricsUpdate) {
+      lastScrollY = currentScrollY;
 
-    const frameToRender = Math.round(currentFrameIndex);
-    renderFrame(frameToRender);
+      const scrollProgress = maxScroll > 0 ? clamp(currentScrollY / maxScroll, 0, 1) : 0;
+      currentFrameIndex = scrollProgress * (TOTAL_FRAMES - 1);
 
-    const isMobile = viewportW <= 768;
+      // Determine scroll direction for frame preloading priority
+      if (currentFrameIndex !== prevFrameIndexForDirection) {
+        scrollDirection = currentFrameIndex >= prevFrameIndexForDirection ? 1 : -1;
+        prevFrameIndexForDirection = currentFrameIndex;
+      }
 
-    // 1. HERO EXIT (Pure Math, layout-thrash free, continuous, reversible)
-    if (cachedHeroGrid && cachedHeroSection) {
-      if (isReducedMotion) {
-        setElementStyle(cachedHeroGrid, 'opacity', '1');
-        setElementStyle(cachedHeroGrid, 'transform', 'none');
-        setElementStyle(cachedHeroGrid, 'filter', 'none');
-        setElementStyle(cachedHeroGrid, 'pointerEvents', 'auto');
-      } else {
-        const heroTop = cachedHeroOffsetTop - currentScrollY;
-        const exitRange = cachedHeroHeight * 0.65;
-        const heroExitProgress = clamp(-heroTop / exitRange, 0, 1);
+      const frameToRender = Math.round(currentFrameIndex);
+      renderFrame(frameToRender);
 
-        if (heroExitProgress <= 0) {
+      // 1. HERO EXIT (Pure Math, layout-thrash free, continuous, reversible)
+      if (cachedHeroGrid && cachedHeroSection) {
+        if (isReducedMotion) {
           setElementStyle(cachedHeroGrid, 'opacity', '1');
-          setElementStyle(cachedHeroGrid, 'transform', 'translateY(0px) scale(1)');
+          setElementStyle(cachedHeroGrid, 'transform', 'none');
           setElementStyle(cachedHeroGrid, 'filter', 'none');
           setElementStyle(cachedHeroGrid, 'pointerEvents', 'auto');
-        } else if (heroExitProgress < 1) {
-          const easeExit = Math.pow(heroExitProgress, 1.2);
-          const heroOpacity = Math.max(0, 1 - easeExit);
-          const heroTranslateY = -heroExitProgress * (isMobile ? 25 : 50);
-          const heroScale = 1 - (heroExitProgress * 0.03);
-          const heroBlur = isMobile ? 0 : (heroExitProgress * 4);
-
-          setElementStyle(cachedHeroGrid, 'opacity', heroOpacity.toFixed(3));
-          setElementStyle(cachedHeroGrid, 'transform', `translateY(${heroTranslateY.toFixed(1)}px) scale(${heroScale.toFixed(3)})`);
-          setElementStyle(cachedHeroGrid, 'filter', heroBlur > 0.1 ? `blur(${heroBlur.toFixed(1)}px)` : 'none');
-          setElementStyle(cachedHeroGrid, 'pointerEvents', heroExitProgress > 0.85 ? 'none' : 'auto');
         } else {
-          setElementStyle(cachedHeroGrid, 'opacity', '0');
-          setElementStyle(cachedHeroGrid, 'pointerEvents', 'none');
+          const heroTop = cachedHeroOffsetTop - currentScrollY;
+          const exitRange = cachedHeroHeight * 0.65;
+          const heroExitProgress = clamp(-heroTop / exitRange, 0, 1);
+
+          if (heroExitProgress <= 0) {
+            if (heroState !== 'top') {
+              heroState = 'top';
+              setElementStyle(cachedHeroGrid, 'opacity', '1');
+              setElementStyle(cachedHeroGrid, 'transform', 'translateY(0px) scale(1)');
+              setElementStyle(cachedHeroGrid, 'filter', 'none');
+              setElementStyle(cachedHeroGrid, 'pointerEvents', 'auto');
+            }
+          } else if (heroExitProgress < 1) {
+            heroState = 'animating';
+            const easeExit = Math.pow(heroExitProgress, 1.2);
+            const heroOpacity = Math.max(0, 1 - easeExit);
+            const heroTranslateY = -heroExitProgress * (isMobile ? 25 : 50);
+            const heroScale = 1 - (heroExitProgress * 0.03);
+            const heroBlur = isMobile ? 0 : (heroExitProgress * 4);
+
+            setElementStyle(cachedHeroGrid, 'opacity', heroOpacity.toFixed(3));
+            setElementStyle(cachedHeroGrid, 'transform', `translateY(${heroTranslateY.toFixed(1)}px) scale(${heroScale.toFixed(3)})`);
+            setElementStyle(cachedHeroGrid, 'filter', heroBlur > 0.1 ? `blur(${heroBlur.toFixed(1)}px)` : 'none');
+            setElementStyle(cachedHeroGrid, 'pointerEvents', heroExitProgress > 0.85 ? 'none' : 'auto');
+          } else {
+            if (heroState !== 'bottom') {
+              heroState = 'bottom';
+              setElementStyle(cachedHeroGrid, 'opacity', '0');
+              setElementStyle(cachedHeroGrid, 'pointerEvents', 'none');
+            }
+          }
         }
       }
-    }
 
-    // 2. ABOUT ENTRY & STAGGER (Pure Math, layout-thrash free, continuous, reversible)
-    if (cachedAboutSection && cachedAboutPanel) {
-      if (isReducedMotion) {
-        setElementStyle(cachedAboutPanel, 'opacity', '1');
-        setElementStyle(cachedAboutPanel, 'transform', 'none');
-        if (cachedAboutHeader) { setElementStyle(cachedAboutHeader, 'opacity', '1'); setElementStyle(cachedAboutHeader, 'transform', 'none'); }
-        if (cachedAboutEdu) { setElementStyle(cachedAboutEdu, 'opacity', '1'); setElementStyle(cachedAboutEdu, 'transform', 'none'); }
-        if (cachedAboutMeta) { setElementStyle(cachedAboutMeta, 'opacity', '1'); setElementStyle(cachedAboutMeta, 'transform', 'none'); }
-      } else {
-        const aboutTop = cachedAboutOffsetTop - currentScrollY;
-        const startPoint = viewportH * 0.95;
-        const endPoint = viewportH * 0.25;
-        const totalDist = startPoint - endPoint;
-        const aboutProgress = clamp((startPoint - aboutTop) / totalDist, 0, 1);
+      // 2. ABOUT ENTRY & STAGGER (Pure Math, layout-thrash free, continuous, reversible)
+      if (cachedAboutSection && cachedAboutPanel) {
+        if (isReducedMotion) {
+          setElementStyle(cachedAboutPanel, 'opacity', '1');
+          setElementStyle(cachedAboutPanel, 'transform', 'none');
+          if (cachedAboutHeader) { setElementStyle(cachedAboutHeader, 'opacity', '1'); setElementStyle(cachedAboutHeader, 'transform', 'none'); }
+          if (cachedAboutEdu) { setElementStyle(cachedAboutEdu, 'opacity', '1'); setElementStyle(cachedAboutEdu, 'transform', 'none'); }
+          if (cachedAboutMeta) { setElementStyle(cachedAboutMeta, 'opacity', '1'); setElementStyle(cachedAboutMeta, 'transform', 'none'); }
+        } else {
+          const aboutTop = cachedAboutOffsetTop - currentScrollY;
+          const startPoint = viewportH * 0.95;
+          const endPoint = viewportH * 0.25;
+          const totalDist = startPoint - endPoint;
+          const aboutProgress = clamp((startPoint - aboutTop) / totalDist, 0, 1);
 
-        const maxTranslate = isMobile ? 20 : 35;
+          if (aboutProgress <= 0) {
+            if (aboutState !== 'top') {
+              aboutState = 'top';
+              setElementStyle(cachedAboutPanel, 'opacity', '0');
+              setElementStyle(cachedAboutPanel, 'transform', 'translateY(35px) scale(0.98)');
+            }
+          } else if (aboutProgress < 1) {
+            aboutState = 'animating';
+            const maxTranslate = isMobile ? 20 : 35;
 
-        // Layer 1: Panel Container
-        const panelP = clamp(aboutProgress / 0.7, 0, 1);
-        const panelOpacity = Math.pow(panelP, 1.2);
-        const panelY = (1 - panelP) * maxTranslate;
-        const panelScale = 0.98 + (panelP * 0.02);
+            // Layer 1: Panel Container
+            const panelP = clamp(aboutProgress / 0.7, 0, 1);
+            const panelOpacity = Math.pow(panelP, 1.2);
+            const panelY = (1 - panelP) * maxTranslate;
+            const panelScale = 0.98 + (panelP * 0.02);
 
-        setElementStyle(cachedAboutPanel, 'opacity', panelOpacity.toFixed(3));
-        setElementStyle(cachedAboutPanel, 'transform', `translateY(${panelY.toFixed(1)}px) scale(${panelScale.toFixed(3)})`);
+            setElementStyle(cachedAboutPanel, 'opacity', panelOpacity.toFixed(3));
+            setElementStyle(cachedAboutPanel, 'transform', `translateY(${panelY.toFixed(1)}px) scale(${panelScale.toFixed(3)})`);
 
-        // Layer 2: About Header & Statement (stagger 0.08)
-        if (cachedAboutHeader) {
-          const headerP = clamp((aboutProgress - 0.08) / 0.7, 0, 1);
-          const headerOpacity = Math.pow(headerP, 1.2);
-          const headerY = (1 - headerP) * (maxTranslate * 0.8);
-          setElementStyle(cachedAboutHeader, 'opacity', headerOpacity.toFixed(3));
-          setElementStyle(cachedAboutHeader, 'transform', `translateY(${headerY.toFixed(1)}px)`);
-        }
+            // Layer 2: About Header & Statement (stagger 0.08)
+            if (cachedAboutHeader) {
+              const headerP = clamp((aboutProgress - 0.08) / 0.7, 0, 1);
+              const headerOpacity = Math.pow(headerP, 1.2);
+              const headerY = (1 - headerP) * (maxTranslate * 0.8);
+              setElementStyle(cachedAboutHeader, 'opacity', headerOpacity.toFixed(3));
+              setElementStyle(cachedAboutHeader, 'transform', `translateY(${headerY.toFixed(1)}px)`);
+            }
 
-        // Layer 3: Education Section (stagger 0.16)
-        if (cachedAboutEdu) {
-          const eduP = clamp((aboutProgress - 0.16) / 0.7, 0, 1);
-          const eduOpacity = Math.pow(eduP, 1.2);
-          const eduY = (1 - eduP) * (maxTranslate * 0.8);
-          setElementStyle(cachedAboutEdu, 'opacity', eduOpacity.toFixed(3));
-          setElementStyle(cachedAboutEdu, 'transform', `translateY(${eduY.toFixed(1)}px)`);
-        }
+            // Layer 3: Education Section (stagger 0.16)
+            if (cachedAboutEdu) {
+              const eduP = clamp((aboutProgress - 0.16) / 0.7, 0, 1);
+              const eduOpacity = Math.pow(eduP, 1.2);
+              const eduY = (1 - eduP) * (maxTranslate * 0.8);
+              setElementStyle(cachedAboutEdu, 'opacity', eduOpacity.toFixed(3));
+              setElementStyle(cachedAboutEdu, 'transform', `translateY(${eduY.toFixed(1)}px)`);
+            }
 
-        // Layer 4: Meta Grid Cards (stagger 0.24)
-        if (cachedAboutMeta) {
-          const metaP = clamp((aboutProgress - 0.24) / 0.7, 0, 1);
-          const metaOpacity = Math.pow(metaP, 1.2);
-          const metaY = (1 - metaP) * (maxTranslate * 0.8);
-          setElementStyle(cachedAboutMeta, 'opacity', metaOpacity.toFixed(3));
-          setElementStyle(cachedAboutMeta, 'transform', `translateY(${metaY.toFixed(1)}px)`);
+            // Layer 4: Meta Grid Cards (stagger 0.24)
+            if (cachedAboutMeta) {
+              const metaP = clamp((aboutProgress - 0.24) / 0.7, 0, 1);
+              const metaOpacity = Math.pow(metaP, 1.2);
+              const metaY = (1 - metaP) * (maxTranslate * 0.8);
+              setElementStyle(cachedAboutMeta, 'opacity', metaOpacity.toFixed(3));
+              setElementStyle(cachedAboutMeta, 'transform', `translateY(${metaY.toFixed(1)}px)`);
+            }
+          } else {
+            if (aboutState !== 'bottom') {
+              aboutState = 'bottom';
+              setElementStyle(cachedAboutPanel, 'opacity', '1');
+              setElementStyle(cachedAboutPanel, 'transform', 'translateY(0px) scale(1)');
+              if (cachedAboutHeader) { setElementStyle(cachedAboutHeader, 'opacity', '1'); setElementStyle(cachedAboutHeader, 'transform', 'translateY(0px)'); }
+              if (cachedAboutEdu) { setElementStyle(cachedAboutEdu, 'opacity', '1'); setElementStyle(cachedAboutEdu, 'transform', 'translateY(0px)'); }
+              if (cachedAboutMeta) { setElementStyle(cachedAboutMeta, 'opacity', '1'); setElementStyle(cachedAboutMeta, 'transform', 'translateY(0px)'); }
+            }
+          }
         }
       }
-    }
 
-    // Trigger background queue processing as frame index updates
-    processQueue();
+      // Trigger background queue processing as frame index updates
+      scheduleProcessQueue();
+    }
   }
 
   requestAnimationFrame(animate);
 }
 
-// Throttled Resize Event Handler
+// Throttled Resize Event Handler with Mobile Address-Bar Thrash Shield
 let resizeTimeout = null;
+let lastWidth = window.innerWidth;
+let lastHeight = window.innerHeight;
+
 function handleResize() {
   if (resizeTimeout) cancelAnimationFrame(resizeTimeout);
   resizeTimeout = requestAnimationFrame(() => {
-    resizeCanvas();
+    const newW = window.innerWidth;
+    const newH = window.innerHeight;
+
+    // On mobile, ignore small height changes caused by address bar hide/show during scrolling
+    const widthChanged = Math.abs(newW - lastWidth) > 2;
+    const heightChanged = Math.abs(newH - lastHeight) > 80;
+
+    if (!isMobile || widthChanged || heightChanged) {
+      lastWidth = newW;
+      lastHeight = newH;
+      resizeCanvas();
+    }
   });
 }
 
@@ -770,7 +862,7 @@ async function init() {
   requestAnimationFrame(animate);
 
   // Kick off background progressive frame preloader
-  processQueue();
+  scheduleProcessQueue();
 }
 
 init();

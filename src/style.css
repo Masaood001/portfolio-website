@@ -489,6 +489,8 @@ html, body {
   align-items: center;
   margin-top: auto;
   margin-bottom: auto;
+  will-change: transform, opacity;
+  transform: translateZ(0);
 }
 
 .hero-left {
@@ -1510,6 +1512,31 @@ html, body {
 }
 
 @media (max-width: 768px) {
+  /* Mobile Hardware Acceleration & Lighter Backdrop Filters */
+  .navbar,
+  .scroll-explore-btn,
+  .btn-pill-behance {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .glass-card,
+  .glass-card-large,
+  .card-feature,
+  .project-card,
+  .certification-card,
+  .banner-developer,
+  .footer-container {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  .impact-panel {
+    will-change: transform, opacity;
+    transform: translateZ(0);
+  }
+
   /* Navbar Mobile Optimizations */
   .navbar {
     padding: 10px 16px;
